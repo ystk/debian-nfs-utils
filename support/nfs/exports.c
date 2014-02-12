@@ -39,12 +39,6 @@ struct flav_info flav_map[] = {
 	{ "krb5",	RPC_AUTH_GSS_KRB5	},
 	{ "krb5i",	RPC_AUTH_GSS_KRB5I	},
 	{ "krb5p",	RPC_AUTH_GSS_KRB5P	},
-	{ "lipkey",	RPC_AUTH_GSS_LKEY	},
-	{ "lipkey-i",	RPC_AUTH_GSS_LKEYI	},
-	{ "lipkey-p",	RPC_AUTH_GSS_LKEYP	},
-	{ "spkm3",	RPC_AUTH_GSS_SPKM	},
-	{ "spkm3i",	RPC_AUTH_GSS_SPKMI	},
-	{ "spkm3p",	RPC_AUTH_GSS_SPKMP	},
 	{ "unix",	AUTH_UNIX		},
 	{ "sys",	AUTH_SYS		},
 	{ "null",	AUTH_NULL		},
@@ -107,6 +101,7 @@ static void init_exportent (struct exportent *ee, int fromkernel)
 	ee->e_nsquids = 0;
 	ee->e_nsqgids = 0;
 	ee->e_uuid = NULL;
+	ee->e_ttl = DEFAULT_TTL;
 }
 
 struct exportent *
@@ -141,9 +136,14 @@ getexportent(int fromkernel, int fromexports)
 		return NULL;
 	}
 	first = 0;
-		
-	/* Check for default options */
-	if (exp[0] == '-') {
+
+	/*
+	 * Check for default options.  The kernel will never have default
+	 * options in /proc/fs/nfs/exports, however due to the initial '-' in
+	 * the -test-client- string from the test export we have to check that
+	 * we're not reading from the kernel.
+	 */
+	if (exp[0] == '-' && !fromkernel) {
 		if (parseopts(exp + 1, &def_ee, 0, &has_default_subtree_opts) < 0)
 			return NULL;
 		
@@ -332,6 +332,8 @@ dupexportent(struct exportent *dst, struct exportent *src)
 		dst->e_mountpoint = strdup(src->e_mountpoint);
 	if (src->e_fslocdata)
 		dst->e_fslocdata = strdup(src->e_fslocdata);
+	if (src->e_uuid)
+		dst->e_uuid = strdup(src->e_uuid);
 	dst->e_hostname = NULL;
 }
 
@@ -776,8 +778,9 @@ struct export_features *get_export_features(void)
 	fd = open(path, O_RDONLY);
 	if (fd == -1)
 		goto good;
-	fd = read(fd, buf, 50);
-	if (fd == -1)
+	c = read(fd, buf, 50);
+	close(fd);
+	if (c == -1)
 		goto err;
 	c = sscanf(buf, "%x %x", &ef.flags, &ef.secinfo_flags);
 	if (c != 2)

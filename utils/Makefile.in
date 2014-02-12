@@ -34,19 +34,24 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 @CONFIG_NFSV4_TRUE@am__append_1 = idmapd
-@CONFIG_GSS_TRUE@am__append_2 = gssd
-@CONFIG_MOUNT_TRUE@am__append_3 = mount
+@CONFIG_NFSIDMAP_TRUE@@CONFIG_NFSV4_TRUE@am__append_2 = nfsidmap
+@CONFIG_NFSV41_TRUE@am__append_3 = blkmapd
+@CONFIG_GSS_TRUE@am__append_4 = gssd
+@CONFIG_MOUNT_TRUE@am__append_5 = mount
+@CONFIG_NFSDCLD_TRUE@am__append_6 = nfsdcld
 subdir = utils
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/aclocal/bsdsignals.m4 \
 	$(top_srcdir)/aclocal/ipv6.m4 \
 	$(top_srcdir)/aclocal/kerberos5.m4 \
+	$(top_srcdir)/aclocal/keyutils.m4 \
 	$(top_srcdir)/aclocal/libblkid.m4 \
 	$(top_srcdir)/aclocal/libcap.m4 \
 	$(top_srcdir)/aclocal/libevent.m4 \
 	$(top_srcdir)/aclocal/libnfsidmap.m4 \
 	$(top_srcdir)/aclocal/librpcsecgss.m4 \
+	$(top_srcdir)/aclocal/libsqlite3.m4 \
 	$(top_srcdir)/aclocal/libtirpc.m4 \
 	$(top_srcdir)/aclocal/nfs-utils.m4 \
 	$(top_srcdir)/aclocal/rpcsec_vers.m4 \
@@ -74,8 +79,8 @@ AM_RECURSIVE_TARGETS = $(RECURSIVE_TARGETS:-recursive=) \
 	distdir
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = exportfs mountd nfsd nfsstat showmount statd idmapd \
-	gssd mount
+DIST_SUBDIRS = exportfs mountd nfsd nfsstat showmount statd osd_login \
+	idmapd nfsidmap blkmapd gssd mount nfsdcld
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 am__relativize = \
   dir0=`pwd`; \
@@ -129,6 +134,7 @@ CXXFLAGS_FOR_BUILD = @CXXFLAGS_FOR_BUILD@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -161,10 +167,17 @@ LIBBLKID = @LIBBLKID@
 LIBBSD = @LIBBSD@
 LIBCAP = @LIBCAP@
 LIBCRYPT = @LIBCRYPT@
+LIBDL = @LIBDL@
+LIBEVENT = @LIBEVENT@
+LIBKEYUTILS = @LIBKEYUTILS@
+LIBMOUNT = @LIBMOUNT@
+LIBNFSIDMAP = @LIBNFSIDMAP@
 LIBNSL = @LIBNSL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBSOCKET = @LIBSOCKET@
+LIBSQLITE = @LIBSQLITE@
+LIBTIRPC = @LIBTIRPC@
 LIBTOOL = @LIBTOOL@
 LIBWRAP = @LIBWRAP@
 LIPO = @LIPO@
@@ -172,6 +185,7 @@ LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
+MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
@@ -184,9 +198,12 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 RANLIB = @RANLIB@
 RELEASE = @RELEASE@
 RPCGEN_PATH = @RPCGEN_PATH@
@@ -202,6 +219,7 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
@@ -224,7 +242,6 @@ dvidir = @dvidir@
 enable_gss = @enable_gss@
 enable_ipv6 = @enable_ipv6@
 enable_mountconfig = @enable_mountconfig@
-enable_nfsv3 = @enable_nfsv3@
 enable_nfsv4 = @enable_nfsv4@
 enable_nfsv41 = @enable_nfsv41@
 exec_prefix = @exec_prefix@
@@ -242,7 +259,6 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
-lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 mountfile = @mountfile@
@@ -255,6 +271,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 startstatd = @startstatd@
+statdpath = @statdpath@
 statduser = @statduser@
 statedir = @statedir@
 sysconfdir = @sysconfdir@
@@ -262,7 +279,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-OPTDIRS = $(am__append_1) $(am__append_2) $(am__append_3)
+OPTDIRS = $(am__append_1) $(am__append_2) $(am__append_3) \
+	$(am__append_4) $(am__append_5) $(am__append_6)
 SUBDIRS = \
 	exportfs \
 	mountd \
@@ -270,6 +288,7 @@ SUBDIRS = \
 	nfsstat \
 	showmount \
 	statd \
+	osd_login \
 	$(OPTDIRS)
 
 MAINTAINERCLEANFILES = Makefile.in

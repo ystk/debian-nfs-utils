@@ -299,15 +299,11 @@ destroy_client(struct clnt_info *clp)
 	if (clp->krb5_poll_index != -1)
 		memset(&pollarray[clp->krb5_poll_index], 0,
 					sizeof(struct pollfd));
-	if (clp->spkm3_poll_index != -1)
-		memset(&pollarray[clp->spkm3_poll_index], 0,
-					sizeof(struct pollfd));
 	if (clp->gssd_poll_index != -1)
 		memset(&pollarray[clp->gssd_poll_index], 0,
 					sizeof(struct pollfd));
 	if (clp->dir_fd != -1) close(clp->dir_fd);
 	if (clp->krb5_fd != -1) close(clp->krb5_fd);
-	if (clp->spkm3_fd != -1) close(clp->spkm3_fd);
 	if (clp->gssd_fd != -1) close(clp->gssd_fd);
 	free(clp->dirname);
 	free(clp->servicename);
@@ -327,10 +323,8 @@ insert_new_clnt(void)
 		goto out;
 	}
 	clp->krb5_poll_index = -1;
-	clp->spkm3_poll_index = -1;
 	clp->gssd_poll_index = -1;
 	clp->krb5_fd = -1;
-	clp->spkm3_fd = -1;
 	clp->gssd_fd = -1;
 	clp->dir_fd = -1;
 
@@ -355,30 +349,22 @@ process_clnt_dir_files(struct clnt_info * clp)
 			snprintf(name, sizeof(name), "%s/krb5", clp->dirname);
 			clp->krb5_fd = open(name, O_RDWR);
 		}
-		if (clp->spkm3_fd == -1) {
-			snprintf(name, sizeof(name), "%s/spkm3", clp->dirname);
-			clp->spkm3_fd = open(name, O_RDWR);
-		}
 
 		/* If we opened a gss-specific pipe, let's try opening
 		 * the new upcall pipe again. If we succeed, close
 		 * gss-specific pipe(s).
 		 */
-		if (clp->krb5_fd != -1 || clp->spkm3_fd != -1) {
+		if (clp->krb5_fd != -1) {
 			clp->gssd_fd = open(gname, O_RDWR);
 			if (clp->gssd_fd != -1) {
 				if (clp->krb5_fd != -1)
 					close(clp->krb5_fd);
 				clp->krb5_fd = -1;
-				if (clp->spkm3_fd != -1)
-					close(clp->spkm3_fd);
-				clp->spkm3_fd = -1;
 			}
 		}
 	}
 
-	if ((clp->krb5_fd == -1) && (clp->spkm3_fd == -1) &&
-			(clp->gssd_fd == -1))
+	if ((clp->krb5_fd == -1) && (clp->gssd_fd == -1))
 		return -1;
 	snprintf(info_file_name, sizeof(info_file_name), "%s/info",
 			clp->dirname);
@@ -429,15 +415,6 @@ insert_clnt_poll(struct clnt_info *clp)
 		}
 		pollarray[clp->krb5_poll_index].fd = clp->krb5_fd;
 		pollarray[clp->krb5_poll_index].events |= POLLIN;
-	}
-
-	if ((clp->spkm3_fd != -1) && (clp->spkm3_poll_index == -1)) {
-		if (get_poll_index(&clp->spkm3_poll_index)) {
-			printerr(0, "ERROR: Too many spkm3 clients\n");
-			return -1;
-		}
-		pollarray[clp->spkm3_poll_index].fd = clp->spkm3_fd;
-		pollarray[clp->spkm3_poll_index].events |= POLLIN;
 	}
 
 	return 0;
@@ -598,6 +575,67 @@ update_client_list(void)
 
 	}
 	return retval;
+}
+
+/* Encryption types supported by the kernel rpcsec_gss code */
+int num_krb5_enctypes = 0;
+krb5_enctype *krb5_enctypes = NULL;
+
+/*
+ * Parse the supported encryption type information
+ */
+static int
+parse_enctypes(char *enctypes)
+{
+	int n = 0;
+	char *curr, *comma;
+	int i;
+	static char *cached_types;
+
+	if (cached_types && strcmp(cached_types, enctypes) == 0)
+		return 0;
+	free(cached_types);
+
+	if (krb5_enctypes != NULL) {
+		free(krb5_enctypes);
+		krb5_enctypes = NULL;
+		num_krb5_enctypes = 0;
+	}
+
+	/* count the number of commas */
+	for (curr = enctypes; curr && *curr != '\0'; curr = ++comma) {
+		comma = strchr(curr, ',');
+		if (comma != NULL)
+			n++;
+		else
+			break;
+	}
+	/* If no more commas and we're not at the end, there's one more value */
+	if (*curr != '\0')
+		n++;
+
+	/* Empty string, return an error */
+	if (n == 0)
+		return ENOENT;
+
+	/* Allocate space for enctypes array */
+	if ((krb5_enctypes = (int *) calloc(n, sizeof(int))) == NULL) {
+		return ENOMEM;
+	}
+
+	/* Now parse each value into the array */
+	for (curr = enctypes, i = 0; curr && *curr != '\0'; curr = ++comma) {
+		krb5_enctypes[i++] = atoi(curr);
+		comma = strchr(curr, ',');
+		if (comma == NULL)
+			break;
+	}
+
+	num_krb5_enctypes = n;
+	if ((cached_types = malloc(strlen(enctypes)+1)))
+		strcpy(cached_types, enctypes);
+
+	return 0;
 }
 
 static int
@@ -778,13 +816,6 @@ int create_auth_rpc_client(struct clnt_info *clp,
 		sec.mech = (gss_OID)&krb5oid;
 		sec.req_flags = GSS_C_MUTUAL_FLAG;
 	}
-	else if (authtype == AUTHTYPE_SPKM3) {
-		sec.mech = (gss_OID)&spkm3oid;
-		/* XXX sec.req_flags = GSS_C_ANON_FLAG;
-		 * Need a way to switch....
-		 */
-		sec.req_flags = GSS_C_MUTUAL_FLAG;
-	}
 	else {
 		printerr(0, "ERROR: Invalid authentication type (%d) "
 			"in create_auth_rpc_client\n", authtype);
@@ -798,7 +829,7 @@ int create_auth_rpc_client(struct clnt_info *clp,
 		 * Do this before creating rpc connection since we won't need
 		 * rpc connection if it fails!
 		 */
-		if (limit_krb5_enctypes(&sec, uid)) {
+		if (limit_krb5_enctypes(&sec)) {
 			printerr(1, "WARNING: Failed while limiting krb5 "
 				    "encryption types for user with uid %d\n",
 				 uid);
@@ -858,9 +889,8 @@ int create_auth_rpc_client(struct clnt_info *clp,
 	auth = authgss_create_default(rpc_clnt, clp->servicename, &sec);
 	if (!auth) {
 		/* Our caller should print appropriate message */
-		printerr(2, "WARNING: Failed to create %s context for "
+		printerr(2, "WARNING: Failed to create krb5 context for "
 			    "user with uid %d for server %s\n",
-			(authtype == AUTHTYPE_KRB5 ? "krb5":"spkm3"),
 			 uid, clp->servername);
 		goto out_fail;
 	}
@@ -875,7 +905,7 @@ int create_auth_rpc_client(struct clnt_info *clp,
 	if (sec.cred != GSS_C_NO_CREDENTIAL)
 		gss_release_cred(&min_stat, &sec.cred);
 	/* Restore euid to original value */
-	if ((save_uid != -1) && (setfsuid(save_uid) != uid)) {
+	if (((int)save_uid != -1) && (setfsuid(save_uid) != (int)uid)) {
 		printerr(0, "WARNING: Failed to restore fsuid"
 			    " to uid %d from %d\n", save_uid, uid);
 	}
@@ -888,6 +918,23 @@ int create_auth_rpc_client(struct clnt_info *clp,
 	goto out;
 }
 
+static char *
+user_cachedir(char *dirname, uid_t uid)
+{
+	struct passwd *pw;
+	char *ptr;
+
+	if ((pw = getpwuid(uid)) == NULL) {
+		printerr(0, "user_cachedir: Failed to find '%d' uid"
+			    " for cache directory\n");
+		return NULL;
+	}
+	ptr = malloc(strlen(dirname)+strlen(pw->pw_name)+2);
+	if (ptr)
+		sprintf(ptr, "%s/%s", dirname, pw->pw_name);
+
+	return ptr;
+}
 /*
  * this code uses the userland rpcsec gss library to create a krb5
  * context on behalf of the kernel
@@ -902,7 +949,7 @@ process_krb5_upcall(struct clnt_info *clp, uid_t uid, int fd, char *tgtname,
 	gss_buffer_desc		token;
 	char			**credlist = NULL;
 	char			**ccname;
-	char			**dirname;
+	char			**dirname, *dir, *userdir;
 	int			create_resp = -1;
 	int			err, downcall_err = -EACCES;
 
@@ -945,7 +992,22 @@ process_krb5_upcall(struct clnt_info *clp, uid_t uid, int fd, char *tgtname,
 				service == NULL)) {
 		/* Tell krb5 gss which credentials cache to use */
 		for (dirname = ccachesearch; *dirname != NULL; dirname++) {
-			err = gssd_setup_krb5_user_gss_ccache(uid, clp->servername, *dirname);
+			/* See if the user name is needed */
+			if (strncmp(*dirname, GSSD_USER_CRED_DIR, 
+					strlen(GSSD_USER_CRED_DIR)) == 0) {
+				userdir = user_cachedir(*dirname, uid);
+				if (userdir == NULL) 
+					continue;
+				dir = userdir;
+			} else
+				dir = *dirname;
+
+			err = gssd_setup_krb5_user_gss_ccache(uid, clp->servername, dir);
+
+			if (userdir) {
+				free(userdir);
+				userdir = NULL;
+			}
 			if (err == -EKEYEXPIRED)
 				downcall_err = -EKEYEXPIRED;
 			else if (!err)
@@ -1042,85 +1104,18 @@ out_return_error:
 	goto out;
 }
 
-/*
- * this code uses the userland rpcsec gss library to create an spkm3
- * context on behalf of the kernel
- */
-static void
-process_spkm3_upcall(struct clnt_info *clp, uid_t uid, int fd)
-{
-	CLIENT			*rpc_clnt = NULL;
-	AUTH			*auth = NULL;
-	struct authgss_private_data pd;
-	gss_buffer_desc		token;
-
-	printerr(2, "handling spkm3 upcall (%s)\n", clp->dirname);
-
-	token.length = 0;
-	token.value = NULL;
-
-	if (create_auth_rpc_client(clp, &rpc_clnt, &auth, uid, AUTHTYPE_SPKM3)) {
-		printerr(0, "WARNING: Failed to create spkm3 context for "
-			    "user with uid %d\n", uid);
-		goto out_return_error;
-	}
-
-	if (!authgss_get_private_data(auth, &pd)) {
-		printerr(0, "WARNING: Failed to obtain authentication "
-			    "data for user with uid %d for server %s\n",
-			 uid, clp->servername);
-		goto out_return_error;
-	}
-
-	if (serialize_context_for_kernel(pd.pd_ctx, &token, &spkm3oid, NULL)) {
-		printerr(0, "WARNING: Failed to serialize spkm3 context for "
-			    "user with uid %d for server\n",
-			 uid, clp->servername);
-		goto out_return_error;
-	}
-
-	do_downcall(fd, uid, &pd, &token);
-
-out:
-	if (token.value)
-		free(token.value);
-	if (auth)
-		AUTH_DESTROY(auth);
-	if (rpc_clnt)
-		clnt_destroy(rpc_clnt);
-	return;
-
-out_return_error:
-	do_error_downcall(fd, uid, -1);
-	goto out;
-}
-
 void
 handle_krb5_upcall(struct clnt_info *clp)
 {
 	uid_t			uid;
 
-	if (read(clp->krb5_fd, &uid, sizeof(uid)) < sizeof(uid)) {
+	if (read(clp->krb5_fd, &uid, sizeof(uid)) < (ssize_t)sizeof(uid)) {
 		printerr(0, "WARNING: failed reading uid from krb5 "
 			    "upcall pipe: %s\n", strerror(errno));
 		return;
 	}
 
 	return process_krb5_upcall(clp, uid, clp->krb5_fd, NULL, NULL);
-}
-
-void
-handle_spkm3_upcall(struct clnt_info *clp)
-{
-	uid_t			uid;
-
-	if (read(clp->spkm3_fd, &uid, sizeof(uid)) < sizeof(uid)) {
-		printerr(0, "WARNING: failed reading uid from spkm3 "
-			 "upcall pipe: %s\n", strerror(errno));
-		return;
-	}
-
-	return process_spkm3_upcall(clp, uid, clp->spkm3_fd);
 }
 
 void
@@ -1133,6 +1128,7 @@ handle_gssd_upcall(struct clnt_info *clp)
 	char			*mech = NULL;
 	char			*target = NULL;
 	char			*service = NULL;
+	char			*enctypes = NULL;
 
 	printerr(1, "handling gssd upcall (%s)\n", clp->dirname);
 
@@ -1176,6 +1172,23 @@ handle_gssd_upcall(struct clnt_info *clp)
 		goto out;
 	}
 
+	/* read supported encryption types if supplied */
+	if ((p = strstr(lbuf, "enctypes=")) != NULL) {
+		enctypes = malloc(lbuflen);
+		if (!enctypes)
+			goto out;
+		if (sscanf(p, "enctypes=%s", enctypes) != 1) {
+			printerr(0, "WARNING: handle_gssd_upcall: "
+				    "failed to parse encryption types "
+				    "in upcall string '%s'\n", lbuf);
+			goto out;
+		}
+		if (parse_enctypes(enctypes) != 0) {
+			printerr(0, "WARNING: handle_gssd_upcall: "
+				"parsing encryption types failed: errno %d\n", errno);
+		}
+	}
+
 	/* read target name */
 	if ((p = strstr(lbuf, "target=")) != NULL) {
 		target = malloc(lbuflen);
@@ -1213,8 +1226,6 @@ handle_gssd_upcall(struct clnt_info *clp)
 
 	if (strcmp(mech, "krb5") == 0)
 		process_krb5_upcall(clp, uid, clp->gssd_fd, target, service);
-	else if (strcmp(mech, "spkm3") == 0)
-		process_spkm3_upcall(clp, uid, clp->gssd_fd);
 	else
 		printerr(0, "WARNING: handle_gssd_upcall: "
 			    "received unknown gss mech '%s'\n", mech);
@@ -1222,6 +1233,7 @@ handle_gssd_upcall(struct clnt_info *clp)
 out:
 	free(lbuf);
 	free(mech);
+	free(enctypes);
 	free(target);
 	free(service);
 	return;	

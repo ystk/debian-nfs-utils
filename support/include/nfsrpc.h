@@ -15,8 +15,8 @@
  *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 021110-1307, USA.
+ * Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 0211-1301 USA
  *
  */
 
@@ -25,6 +25,12 @@
 
 #include <rpc/types.h>
 #include <rpc/clnt.h>
+
+/*
+ * IANA does not define an IP protocol number for RDMA transports.
+ * Choose an arbitrary value we can use locally.
+ */
+#define NFSPROTO_RDMA		(3939)
 
 /*
  * Conventional RPC program numbers
@@ -159,5 +165,8 @@ extern int		nfs_rpc_ping(const struct sockaddr *sap,
 				const rpcvers_t version,
 				const unsigned short protocol,
 				const struct timeval *timeout);
+
+/* create AUTH_SYS handle with no supplemental groups */
+extern AUTH *			 nfs_authsys_create(void);
 
 #endif	/* !__NFS_UTILS_NFSRPC_H */

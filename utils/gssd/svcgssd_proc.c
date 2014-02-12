@@ -56,7 +56,9 @@
 #include "gss_util.h"
 #include "err_util.h"
 #include "context.h"
+#include "misc.h"
 #include "gss_oids.h"
+#include "svcgssd_krb5.h"
 
 extern char * mech2file(gss_OID mech);
 #define SVCGSSD_CONTEXT_CHANNEL "/proc/net/rpc/auth.rpcsec.context/channel"
@@ -70,6 +72,7 @@ struct svc_cred {
 	int	cr_ngroups;
 	gid_t	cr_groups[NGROUPS];
 };
+static char vbuf[RPC_CHAN_BUF_SIZE];
 
 static int
 do_svc_downcall(gss_buffer_desc *out_handle, struct svc_cred *cred,
@@ -91,6 +94,7 @@ do_svc_downcall(gss_buffer_desc *out_handle, struct svc_cred *cred,
 			     SVCGSSD_CONTEXT_CHANNEL, strerror(errno));
 		goto out_err;
 	}
+	setvbuf(f, vbuf, _IOLBF, RPC_CHAN_BUF_SIZE);
 	qword_printhex(f, out_handle->value, out_handle->length);
 	/* XXX are types OK for the rest of this? */
 	/* For context cache, use the actual context endtime */
@@ -132,7 +136,7 @@ struct gss_verifier {
 #define RPCSEC_GSS_SEQ_WIN	5
 
 static int
-send_response(FILE *f, gss_buffer_desc *in_handle, gss_buffer_desc *in_token,
+send_response(gss_buffer_desc *in_handle, gss_buffer_desc *in_token,
 	      u_int32_t maj_stat, u_int32_t min_stat,
 	      gss_buffer_desc *out_handle, gss_buffer_desc *out_token)
 {
@@ -241,7 +245,7 @@ get_ids(gss_name_t client_name, gss_OID mech, struct svc_cred *cred)
 			"file for name '%s'\n", sname);
 		goto out_free;
 	}
-	nfs4_init_name_mapping(NULL); /* XXX: should only do this once */
+
 	res = nfs4_gss_princ_to_ids(secname, sname, &uid, &gid);
 	if (res < 0) {
 		/*
@@ -365,12 +369,8 @@ get_hostbased_client_name(gss_name_t client_name, gss_OID mech,
 	if (g_OID_equal(&krb5oid, mech)) {
 		if (get_krb5_hostbased_name(&name, &cname) == 0)
 			*hostbased_name = cname;
-	}
-
-	/* No support for SPKM3, just print a warning (for now) */
-	if (g_OID_equal(&spkm3oid, mech)) {
-		printerr(1, "WARNING: get_hostbased_client_name: "
-			 "no hostbased_name support for SPKM3\n");
+	} else {
+		printerr(1, "WARNING: unknown/unsupport mech OID\n");
 	}
 
 	res = 0;
@@ -431,12 +431,6 @@ handle_nullreq(FILE *f) {
 	print_hexl("in_tok", in_tok.value, in_tok.length);
 #endif
 
-	if (in_tok.length < 0) {
-		printerr(0, "WARNING: handle_nullreq: "
-			    "failed parsing request\n");
-		goto out_err;
-	}
-
 	if (in_handle.length != 0) { /* CONTINUE_INIT case */
 		if (in_handle.length != sizeof(ctx)) {
 			printerr(0, "WARNING: handle_nullreq: "
@@ -447,6 +441,10 @@ handle_nullreq(FILE *f) {
 		/* in_handle is the context id stored in the out_handle
 		 * for the GSS_S_CONTINUE_NEEDED case below.  */
 		memcpy(&ctx, in_handle.value, in_handle.length);
+	}
+
+	if (svcgssd_limit_krb5_enctypes()) {
+		goto out_err;
 	}
 
 	maj_stat = gss_accept_sec_context(&min_stat, &ctx, gssd_creds,
@@ -498,7 +496,7 @@ handle_nullreq(FILE *f) {
 	do_svc_downcall(&out_handle, &cred, mech, &ctx_token, ctx_endtime,
 			hostbased_name);
 continue_needed:
-	send_response(f, &in_handle, &in_tok, maj_stat, min_stat,
+	send_response(&in_handle, &in_tok, maj_stat, min_stat,
 			&out_handle, &out_tok);
 out:
 	if (ctx_token.value != NULL)
@@ -514,7 +512,7 @@ out:
 out_err:
 	if (ctx != GSS_C_NO_CONTEXT)
 		gss_delete_sec_context(&ignore_min_stat, &ctx, &ignore_out_tok);
-	send_response(f, &in_handle, &in_tok, maj_stat, min_stat,
+	send_response(&in_handle, &in_tok, maj_stat, min_stat,
 			&null_token, &null_token);
 	goto out;
 }

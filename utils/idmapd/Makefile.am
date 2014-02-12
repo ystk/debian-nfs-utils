@@ -11,16 +11,12 @@ EXTRA_DIST = \
 	idmapd.conf
 
 idmapd_SOURCES = \
-	atomicio.c \
 	idmapd.c \
-	strlcat.c \
-	strlcpy.c \
 	\
-	cfg.h \
 	nfs_idmap.h \
 	queue.h
 
-idmapd_LDADD = -levent -lnfsidmap ../../support/nfs/libnfs.a
+idmapd_LDADD = $(LIBEVENT) $(LIBNFSIDMAP) ../../support/nfs/libnfs.a
 
 MAINTAINERCLEANFILES = Makefile.in
 
