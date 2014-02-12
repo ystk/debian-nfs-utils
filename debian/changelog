@@ -1,3 +1,193 @@
+nfs-utils (1:1.2.6-4) stable; urgency=low
+
+  * mountd: auth_unix_ip should downcall on error to prevent
+    hangs (Closes: #682709).
+  * Avoid DNS reverse resolution fixes CVE-2013-1923 (Closes: #707401).
+  * Set default domain (Closes: #675188).
+  * Fix getopt handling for -R option (Closes: #707720).
+
+ -- Luk Claes <luk@debian.org>  Sat, 11 May 2013 14:37:13 +0200
+
+nfs-utils (1:1.2.6-3) unstable; urgency=low
+
+  * Iterate through exports.d to look for expors (Closes: #676604).
+
+ -- Luk Claes <luk@zomers.be>  Tue, 10 Jul 2012 19:38:22 +0200
+
+nfs-utils (1:1.2.6-2) unstable; urgency=low
+
+  * Move open-iscsi and watchdog to Suggests.
+
+ -- Luk Claes <luk@debian.org>  Sat, 26 May 2012 07:45:41 +0200
+
+nfs-utils (1:1.2.6-1) unstable; urgency=low
+
+  * New upstream version
+    - Remove 18-dont-use-PAGE_SIZE.patch: merged upstream.
+    - Update other patches.
+    - Install osd_login (part of the autologin feature).
+      - Add open-iscsi and watchdog to Recommends.
+  * Check for blank exports file (Closes: #673798).
+  * Add 18-osd_login-sbindir.patch to avoid FTBFS
+  * Add 19-iscsiadm-path.patch so osd_login works
+
+ -- Luk Claes <luk@debian.org>  Fri, 25 May 2012 20:41:58 +0200
+
+nfs-utils (1:1.2.5-4) unstable; urgency=low
+
+  * Add libmount-dev to Build-Depends and explicitly enable it.
+  * Move rpc.svcgssd to nfs-common (Closes: #651558).
+  * Also change owning group for /var/lib/nfs (Closes: #651634).
+
+ -- Luk Claes <luk@debian.org>  Sun, 22 Jan 2012 15:46:25 +0100
+
+nfs-utils (1:1.2.5-3) unstable; urgency=low
+
+  [ Roger Leigh ]
+  * /run transition: nfs-common migrates
+    /lib/init/rw/sendsigs.omit.d/statd to /run/sendsigs.omit.d on upgrade,
+    and uses /run/sendsigs.omit.d.  Depend on initscripts
+    (>= 2.88dsf-13.3) to guarantee the existence of
+    /run/sendsigs.omit.d (Closes: #633034).
+
+  [ Luk Claes ]
+  * Version libgssglue-dev build dependency (Closes: #651354).
+
+  [ Luca Capello ]
+  * debian/control:
+    + add mount.nfs to the long Description: (Closes: #644358).
+
+ -- Luk Claes <luk@debian.org>  Fri, 09 Dec 2011 11:55:31 +0100
+
+nfs-utils (1:1.2.5-2) unstable; urgency=low
+
+  * debian/patches/18-dont-use-PAGE_SIZE.patch
+
+ -- Luk Claes <luk@debian.org>  Sun, 02 Oct 2011 22:21:10 +0200
+
+nfs-utils (1:1.2.5-1) unstable; urgency=low
+
+  * New upstream version
+    - deleted: 13-preserve-explicit-port-2049.patch
+    - deleted: 17-Fix-statd.8-manpage-syntax-visible.patch
+    - deleted: 18-Fix-nfsiostat.8-manpage-syntax-missing-.I.patch
+    - deleted: 19-exports.man-Fix-comment-syntax.patch
+    - deleted: 20-nfs.man-Fix-fstab-example.patch
+    - deleted: 22-start-statd-Use-bash.patch
+    - deleted: 23-nfs.man-escape-nroff-for-proper-rendering.patch
+      (Closes: #636278).
+    - support less components in version number (Closes: #632457).
+    - idmapd: correctly convert ocal encoded fields (Closes: #640105).
+    - svcgssd: use correct defaults in call to gss_set_allowable_enctypes
+      (Closes: #637660).
+    - rpc.statd: Bind downcall socket to loopback address (Closes: #457095). 
+  * Add version to build-dep on libnfsidmap-dev (Closes: #639691).
+  * debian/idmapd.conf: Comment Domain (Closes: #638607).
+  * debian/patches/17-multiarch-kerberos-paths.patch (Closes: #642797).
+  * Add build dependency on libdevmapper-dev for blkmapd.
+  * Use dh_autoreconf to make sure original files are restored.
+  * Install blkmapd and its manpage.
+
+ -- Luk Claes <luk@debian.org>  Sun, 02 Oct 2011 18:29:53 +0200
+
+nfs-utils (1:1.2.4-2) UNRELEASED; urgency=low
+
+  [ Luk Claes ]
+  * nfs-kernel-server-default: Add comment about how to disable NFSv4
+
+  [ Ben Hutchings ]
+  * nfs.man: escape ' nroff for proper rendering, thanks to Simon Paillard
+    (Closes: #636278)
+
+ -- Luk Claes <luk@debian.org>  Sat, 06 Aug 2011 07:38:48 +0200
+
+nfs-utils (1:1.2.4-1) unstable; urgency=low
+
+  * New upstream version
+    - Fix host_reliable_addrinfo (Closes: #633155)
+    - Allow multiple RPC listeners to share listener port number
+    (Closes: #619877)
+    - Add --enable-libmount-mount (Closes: #626478)
+    - 12-svcgssd-document-n-option.patch applied upstream
+    - Refresh 19-exports.man-Fix-comment-syntax.patch
+    - 21-anticipate-RLIMIT_FSIZE.patch applied upstream
+    - Add nfsidmap binary and manpage
+    - Use autoreconf to avoid build failure
+
+ -- Luk Claes <luk@debian.org>  Sat, 09 Jul 2011 16:28:32 +0200
+
+nfs-utils (1:1.2.3-3) unstable; urgency=medium
+
+  [ Luk Claes ]
+  * Remove build dependency on librpcsecgss-dev as it's superseded by
+    libtirpc-dev
+  * Remove very old versioned dependencies on netbase and libblkid1
+  * Exclude state files from dh_md5sum
+  * Use rpcinfo instead of /dev/tcp redirection
+  * Fix CVE-2011-1749: Anticipate RLIMIT_FSIZE (Closes: #629420)
+  * start-statd: Use bash (Closes: #621027)
+  * Add build-arch and build-indep makefile targets to debian/rules
+  * Add override for setuid mount.nfs
+
+  [ Ben Hutchings ]
+  * statd.man, nfsiostat.man: Fix syntax errors, thanks to Simon Paillard
+    (Closes: #624261)
+  * exports.man: Fix syntax errors
+  * nfs.man: Fix syntax errors and improve tabulation
+
+ -- Luk Claes <luk@debian.org>  Sat, 18 Jun 2011 10:53:51 +0200
+
+nfs-utils (1:1.2.3-2) unstable; urgency=low
+
+  * Depend on rpcbind unconditionally, as libtirpc does not support the
+    old portmapper protocol (Closes: #619877)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Fri, 08 Apr 2011 13:40:02 +0100
+
+nfs-utils (1:1.2.3-1) unstable; urgency=low
+
+  * New upstream release
+    - 7-remove-duplicate-exports-paragraphs : removed
+    - 12-svcgssd-document-n-option: updated
+    - 14-allow-address-without-name : removed
+    - 15-mountd-fix-path-comparison-for-v4-crossmnt : removed
+    - 16-mount.nfs.man-nfs.man-update-distinction-between-fstypes:
+      part about nfs.man removed and 
+      renamed to 16-mount.nfs.man-update-distinction-between-fstypes
+    - mountd: fix --manage-gids hang due to int/uint bug (0f05c8a)
+      (Closes: #528939,585085)
+    - mount.nfs: Don't do anything fancy if this is a remount (f11547f)
+      (Closes: #612933)
+    - mount: Mount should retry unreachable hosts (5a355f4)
+      (Closes: #560388)
+    - Try to use kernel function to determine supported Kerberos 
+      enctypes (258f10f) (Closes: #474037)
+    - nfs-common: Add Recommends python for mountstats and nfsiostat
+  * Make sure everything is shipped (inspired by #594933) 
+  * nfs-common.init: Enable idmapd by default (Closes: #610363)
+  * Install bug scripts to ease debuging
+  * Build depend on libtirpc-dev and enable IPv6 (Closes: #441361)
+
+ -- Luk Claes <luk@debian.org>  Sun, 27 Mar 2011 18:54:45 +0200
+
+nfs-utils (1:1.2.2-5) unstable; urgency=low
+
+  [ Ben Hutchings ]
+  * mount.nfs.man, nfs.man: Update distinction between fstypes
+    (Closes: #575503)
+  * nfs-kernel-server.init: Require any installed name server ($named) to
+    start before nfs-kernel-server (Closes: #598493)
+
+  [ Luk Claes ]
+  * nfs-common.init, nfs-kernel-server.init: Add warning when portmap is
+    not running (Closes: #612002,#561718,#562737)
+  * nfs-common.init: Add --pidfile for statd (Closes: #521084)
+  * nfs-common.init: Add statd to sendsigs.omit.d (Closes: #524610)
+  * nfs-common.default, nfs-kernel-server.default: Remove spurious question
+    mark in wiki url (Closes: #593511)
+
+ -- Luk Claes <luk@debian.org>  Wed, 16 Mar 2011 23:10:15 +0100
+
 nfs-utils (1:1.2.2-4) unstable; urgency=low
 
   * mountd: fix path comparison for v4 crossmnt (Closes: #578317)
