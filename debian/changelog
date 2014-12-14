@@ -1,3 +1,29 @@
+nfs-utils (1:1.2.2-4squeeze3) squeeze-lts; urgency=high
+
+  * Non-maintainer upload by the Squeeze LTS Team.
+  * Fix CVE-2012-3541 
+    rpc.statd: Bind downcall socket to loopback address
+    In the past, rpc.statd posted SM_NOTIFY requests using the same 
+    socket it used for sending downcalls to the kernel.  To receive 
+    replies from remote hosts, the socket was bound to INADDR_ANY.
+    To prevent unwanted data injection, bind this socket to the 
+    loopback address.
+
+ -- Thorsten Alteholz <debian@alteholz.de>  Sat, 13 Dec 2014 10:58:07 +0100
+
+nfs-utils (1:1.2.2-4squeeze2) stable; urgency=high
+
+  * Fix CVE-2011-1749: Avoid leaving a corrupt mtab file (Closes: #629420)
+
+ -- Luk Claes <luk@debian.org>  Fri, 30 Dec 2011 18:58:07 +0100
+
+nfs-utils (1:1.2.2-4squeeze1) stable; urgency=low
+
+  * Build with patch d6c1b35c6b40243bfd6fba2591c9f8f2653078c0 from upstream 
+    (Closes: #622146)
+
+ -- Luk Claes <luk@debian.org>  Wed, 26 Oct 2011 08:47:44 +0200
+
 nfs-utils (1:1.2.2-4) unstable; urgency=low
 
   * mountd: fix path comparison for v4 crossmnt (Closes: #578317)
