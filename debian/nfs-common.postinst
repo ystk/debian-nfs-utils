@@ -21,9 +21,9 @@ case "$1" in
             fi
         fi
 
+        chown root:root /var/lib/nfs  # CVE-2019-3689
         chown statd: /var/lib/nfs/sm \
-            /var/lib/nfs/sm.bak \
-            /var/lib/nfs
+            /var/lib/nfs/sm.bak
         if [ -f /var/lib/nfs/state ]; then
             chown statd /var/lib/nfs/state
         fi

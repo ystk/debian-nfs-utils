@@ -1,3 +1,11 @@
+nfs-utils (1:1.2.8-9+deb8u1) jessie-security; urgency=high
+
+  * Non-maintainer upload by the LTS Security Team.
+  * CVE-2019-3689: set /var/lib/nfs owner to root:root, set statd
+    uid:gid according to /var/lib/nfs/sm (instead of /var/lib/nfs)
+
+ -- Sylvain Beucler <beuc@debian.org>  Sat, 19 Oct 2019 15:34:07 +0200
+
 nfs-utils (1:1.2.8-9) unstable; urgency=medium
 
   * debian/patches/22-mountd-fix-segfault-in-add_name-with-newer-gcc-
